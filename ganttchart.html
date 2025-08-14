@@ -1,0 +1,390 @@
+Gantt Chart 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gantt Chart Builder</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+  <style>
+    :root{ --bg:#0b1020; --panel:#0f172a; --edge:#1f2937; --ink:#e5e7eb; --muted:#9ca3af; --p:#3b82f6; --g:#10b981; --r:#ef4444; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,Cantarell,Arial; color:var(--ink);
+      background: radial-gradient(1200px 600px at 75% 0%, #1f2937, var(--bg)); display:grid; place-items:start center; }
+    .wrap{ width:min(1200px,96vw); margin:22px; }
+    h1{margin:0 0 6px 0; font-size:clamp(20px,3.2vw,28px)}
+    .sub{opacity:.85; margin-bottom:14px}
+    .grid{ display:grid; grid-template-columns:1fr; gap:16px; }
+    @media (min-width:1100px){ .grid{ grid-template-columns: 480px 1fr; } }
+
+    .panel{ background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08);
+      border-radius:16px; padding:16px; box-shadow:0 10px 35px rgba(0,0,0,.45); }
+
+    label{ display:block; font-weight:600; margin-bottom:6px }
+    input, textarea, select{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:#0b1325; color:#fff; }
+    textarea{ min-height:64px; resize:vertical }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+    .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px }
+
+    .btn{ cursor:pointer; user-select:none; border-radius:10px; padding:10px 14px; font-weight:700; border:1px solid transparent; color:#fff; }
+    .btn.primary{ background:linear-gradient(180deg, #2563eb, #1d4ed8); border-color:#1e40af }
+    .btn.ghost{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.14) }
+    .btn.warn{ background:linear-gradient(180deg, #ef4444, #b91c1c); border-color:#7f1d1d }
+    .btn:disabled{ opacity:.6; cursor:not-allowed }
+
+    .toolbar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-top:10px }
+    .hint{ font-size:12px; opacity:.85 }
+
+    .list{ margin-top:10px; max-height:360px; overflow:auto; border:1px solid rgba(255,255,255,.08); border-radius:12px }
+    table{ width:100%; border-collapse:collapse; font-size:13px }
+    th,td{ padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.06) }
+    th{ text-align:left; position:sticky; top:0; background:#0b1325; z-index:1 }
+    td.actions{ text-align:right; white-space:nowrap }
+    .chip{ display:inline-block; padding:3px 8px; border-radius:999px; background:rgba(59,130,246,.18); border:1px solid rgba(59,130,246,.32) }
+
+    .canvas-wrap{ position:relative; height: 560px }
+    #ganttWrap{ position:relative; width:100%; height:100%; background:#0b1325; border-radius:12px; overflow:auto; border:1px solid rgba(255,255,255,.06) }
+    #gantt{ min-width:720px; min-height:100%; }
+    .legend{ display:flex; gap:10px; align-items:center }
+    .legend .box{ width:12px; height:12px; border-radius:3px; display:inline-block }
+    .success{ color:#34d399 } .danger{ color:#f87171 }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js" defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Gantt Chart Builder</h1>
+    <div class="sub">Add tasks (Task, Start, End, Duration, Dependencies, Progress, Assignee). Edit inline, then <strong>Generate</strong> and <strong>Save .jpg</strong> to a chosen folder.</div>
+
+    <div class="grid">
+      <!-- LEFT: Form -->
+      <div class="panel">
+        <div class="row">
+          <div>
+            <label for="task">Task</label>
+            <input id="task" type="text" placeholder="e.g., Design Phase">
+          </div>
+          <div>
+            <label for="assignee">Assignee</label>
+            <input id="assignee" type="text" placeholder="e.g., Aisha">
+          </div>
+        </div>
+        <div class="row3">
+          <div>
+            <label for="start">Start Date</label>
+            <input id="start" type="date">
+          </div>
+          <div>
+            <label for="end">End Date</label>
+            <input id="end" type="date">
+          </div>
+          <div>
+            <label for="dur">Duration (days)</label>
+            <input id="dur" type="number" min="1" step="1" placeholder="e.g., 5">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="deps">Dependencies <span class="hint">(IDs, comma-separated)</span></label>
+            <input id="deps" type="text" placeholder="e.g., T1,T2">
+          </div>
+          <div>
+            <label for="prog">Progress (%)</label>
+            <input id="prog" type="number" min="0" max="100" step="1" placeholder="0-100">
+          </div>
+        </div>
+        <div class="toolbar">
+          <div style="display:flex; gap:10px; align-items:center">
+            <button id="addBtn" class="btn primary">➕ Add</button>
+            <button id="updateBtn" class="btn primary" style="display:none">✅ Update</button>
+            <button id="cancelBtn" class="btn ghost" style="display:none">✖ Cancel</button>
+            <button id="clearBtn" class="btn ghost">🧹 Clear list</button>
+            <button id="exBtn" class="btn ghost">🎲 Example data</button>
+            <button id="edgeBtn" class="btn ghost">🧪 Edge cases</button>
+          </div>
+          <div class="hint" id="msg"></div>
+        </div>
+
+        <div class="list" aria-label="Task entries">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:10%">ID</th>
+                <th style="width:23%">Task</th>
+                <th style="width:15%">Start</th>
+                <th style="width:15%">End</th>
+                <th style="width:10%">Dur</th>
+                <th style="width:12%">Deps</th>
+                <th style="width:7%">%</th>
+                <th style="width:8%">Assignee</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RIGHT: Chart -->
+      <div class="panel">
+        <div class="toolbar">
+          <div style="display:flex; gap:10px; align-items:center">
+            <select id="view" title="View mode">
+              <option>Day</option>
+              <option selected>Week</option>
+              <option>Month</option>
+              <option>Year</option>
+            </select>
+            <button id="genBtn" class="btn primary">📆 Generate Gantt</button>
+            <button id="dlBtn" class="btn ghost" disabled>💾 Save .jpg</button>
+          </div>
+          <div class="legend">
+            <span class="box" style="background:#4ade80"></span> On track
+            <span class="box" style="background:#fbbf24"></span> At risk
+            <span class="box" style="background:#f87171"></span> Late
+          </div>
+        </div>
+        <div class="canvas-wrap" id="ganttPanel">
+          <div id="ganttWrap">
+            <div id="gantt"></div>
+          </div>
+        </div>
+        <div class="hint" id="chartMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Guard: wait for libs
+    document.addEventListener('DOMContentLoaded', () => {
+      const okLibs = !!window.Gantt && !!window.htmlToImage;
+      const msg = document.getElementById('msg');
+      if (!okLibs){ msg.textContent = 'Error: libraries failed to load. Please check your internet connection or try again.'; return; }
+
+      const taskEl = document.getElementById('task');
+      const assigneeEl = document.getElementById('assignee');
+      const startEl = document.getElementById('start');
+      const endEl = document.getElementById('end');
+      const durEl = document.getElementById('dur');
+      const depsEl = document.getElementById('deps');
+      const progEl = document.getElementById('prog');
+
+      const addBtn = document.getElementById('addBtn');
+      const updateBtn = document.getElementById('updateBtn');
+      const cancelBtn = document.getElementById('cancelBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const exBtn = document.getElementById('exBtn');
+      const edgeBtn = document.getElementById('edgeBtn');
+      const genBtn = document.getElementById('genBtn');
+      const dlBtn = document.getElementById('dlBtn');
+      const tbody = document.getElementById('tbody');
+      const chartMsg = document.getElementById('chartMsg');
+      const viewSel = document.getElementById('view');
+
+      let editIndex = -1; // -1 = add mode
+
+      /** Data model */
+      /** rows: { id, name, start, end, dur, deps, prog, who } */
+      const rows = [];
+      let gantt = null;
+
+      const showMsg = (el, text, kind='') => { el.textContent = text; el.className = 'hint ' + (kind==='ok'?'success':kind==='err'?'danger':''); };
+
+      function fmtDateISO(d){ if (!d) return ''; const dt = new Date(d); if (Number.isNaN(+dt)) return ''; return dt.toISOString().slice(0,10); }
+      function parseIntOrNull(v){ const n = parseInt(v,10); return Number.isFinite(n) ? n : null; }
+      function diffDays(a,b){ const A=new Date(a), B=new Date(b); return Math.max(1, Math.round((B-A)/(1000*60*60*24))+1); }
+      function addDays(d, days){ const dt=new Date(d); dt.setDate(dt.getDate()+days-1); return fmtDateISO(dt); }
+
+      function nextId(){ // T1, T2, ...
+        let n = rows.length + 1;
+        let id = 'T' + n;
+        const used = new Set(rows.map(r=>r.id));
+        while (used.has(id)){ n++; id = 'T' + n; }
+        return id;
+      }
+
+      function addRow(){
+        const name = (taskEl.value||'').trim();
+        const who = (assigneeEl.value||'').trim();
+        const start = startEl.value || null;
+        const end = endEl.value || null;
+        const dur = parseIntOrNull(durEl.value);
+        const deps = (depsEl.value||'').trim().replace(/\s+/g,'');
+        let prog = parseIntOrNull(progEl.value); if (prog==null) prog = 0; prog = Math.min(100, Math.max(0, prog));
+
+        if (!name){ return showMsg(msg, 'Please enter a task name.', 'err'); }
+        if (!start && !(start && (end||dur)) && !(end && dur)){ return showMsg(msg, 'Provide either (Start & End) or (Start & Duration) or (End & Duration).', 'err'); }
+
+        // Compute missing date from duration
+        let s=start, e=end, d=dur;
+        if (s && e && !d) d = diffDays(s,e);
+        else if (s && d && !e) e = addDays(s, d);
+        else if (e && d && !s){ const dt = new Date(e); dt.setDate(dt.getDate() - (d-1)); s = fmtDateISO(dt); }
+        if (!s || !e){ return showMsg(msg, 'Invalid dates/duration combination.', 'err'); }
+
+        const id = nextId();
+        rows.push({ id, name, start:s, end:e, dur:d, deps, prog, who });
+        renderTable(); clearForm(); showMsg(msg, 'Added task. Generate when ready.', 'ok');
+      }
+
+      function editRow(i){
+        const r = rows[i]; if (!r) return;
+        editIndex = i; toggleEditMode(true);
+        taskEl.value = r.name; assigneeEl.value = r.who; startEl.value = r.start; endEl.value = r.end; durEl.value = r.dur; depsEl.value = r.deps; progEl.value = r.prog;
+        showMsg(msg, `Editing ${r.id}. Make changes and click Update.`, '');
+      }
+
+      function updateRow(){
+        if (editIndex < 0) return;
+        const name = (taskEl.value||'').trim();
+        const who = (assigneeEl.value||'').trim();
+        const start = startEl.value || null;
+        const end = endEl.value || null;
+        const dur = parseIntOrNull(durEl.value);
+        const deps = (depsEl.value||'').trim().replace(/\s+/g,'');
+        let prog = parseIntOrNull(progEl.value); if (prog==null) prog = 0; prog = Math.min(100, Math.max(0, prog));
+        if (!name){ return showMsg(msg, 'Please enter a task name.', 'err'); }
+        let s=start, e=end, d=dur; if (s && e && !d) d = diffDays(s,e); else if (s && d && !e) e = addDays(s,d); else if (e && d && !s){ const dt = new Date(e); dt.setDate(dt.getDate() - (d-1)); s = fmtDateISO(dt); }
+        if (!s || !e){ return showMsg(msg, 'Invalid dates/duration combination.', 'err'); }
+        rows[editIndex] = { ...rows[editIndex], name, who, start:s, end:e, dur:d, deps, prog };
+        renderTable(); clearForm(); toggleEditMode(false); showMsg(msg, 'Updated.', 'ok');
+      }
+
+      function clearForm(){ taskEl.value=''; assigneeEl.value=''; startEl.value=''; endEl.value=''; durEl.value=''; depsEl.value=''; progEl.value=''; }
+      function cancelEdit(){ clearForm(); toggleEditMode(false); showMsg(msg, 'Edit cancelled.'); }
+
+      function toggleEditMode(on){ addBtn.style.display = on?'none':''; updateBtn.style.display = on?'':'none'; cancelBtn.style.display = on?'':'none'; }
+
+      function removeRow(i){ rows.splice(i,1); renderTable(); showMsg(msg, 'Deleted.'); }
+      function clearRows(){ rows.length = 0; renderTable(); if (gantt){ document.getElementById('gantt').innerHTML=''; } dlBtn.disabled = true; showMsg(msg, 'List cleared.'); }
+
+      function renderTable(){
+        const used = new Set(rows.map(r=>r.id));
+        // Validate dependency references
+        const warnUnknown = [];
+        rows.forEach(r=>{ if (!r.deps) return; r.deps.split(',').forEach(d=>{ if (d && !used.has(d)) warnUnknown.push(`${r.id}→${d}`); }); });
+        tbody.innerHTML = rows.map((r,i)=>{
+          return `<tr>
+            <td><span class="chip">${r.id}</span></td>
+            <td>${escapeHtml(r.name)}</td>
+            <td>${r.start}</td>
+            <td>${r.end}</td>
+            <td>${r.dur}</td>
+            <td>${escapeHtml(r.deps)}</td>
+            <td>${r.prog}</td>
+            <td>${escapeHtml(r.who||'')}</td>
+            <td class="actions"><button class="btn ghost" onclick="editRow(${i})">Edit</button> <button class="btn warn" onclick="removeRow(${i})">Delete</button></td>
+          </tr>`;
+        }).join('');
+        if (warnUnknown.length){ showMsg(msg, `Warning: Unknown dependencies ${warnUnknown.join(', ')}`, 'err'); }
+      }
+
+      window.editRow = editRow; window.removeRow = removeRow; // for inline onclick
+
+      function escapeHtml(s){ return (s||'').replace(/[&<>\"]/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c])); }
+
+      function colorForTask(r){
+        // Simple schedule state coloring: compare end date vs today and progress
+        const today = new Date(); const end = new Date(r.end);
+        if (end < today && r.prog < 100) return '#f87171'; // Late (red)
+        if (r.prog < 30) return '#fbbf24'; // At risk (amber)
+        return '#4ade80'; // On track (green)
+      }
+
+      function generate(){
+        if (!rows.length) return showMsg(chartMsg, 'Add at least one task first.', 'err');
+        // Build tasks for Frappe Gantt
+        const tasks = rows.map(r=>({
+          id: r.id,
+          name: r.name + (r.who?` — ${r.who}`:''),
+          start: r.start,
+          end: r.end,
+          progress: r.prog,
+          dependencies: r.deps,
+          custom_class: ''
+        }));
+
+        const wrap = document.getElementById('gantt');
+        wrap.innerHTML = '';
+        gantt = new Gantt('#gantt', tasks, {
+          view_mode: viewSel.value,
+          custom_popup_html: (task) => {
+            const r = rows.find(x=>x.id===task.id);
+            return `<div class="details-container">
+              <h5 style="margin:0 0 6px 0">${escapeHtml(task.name)}</h5>
+              <p style="margin:0;font-size:12px">${task.start} → ${task.end} • ${r? r.dur : ''} days • ${task.progress}%</p>
+              ${r && r.deps? `<p style="margin:4px 0 0 0;font-size:12px">Deps: ${escapeHtml(r.deps)}</p>`:''}
+            </div>`;
+          }
+        });
+
+        // Apply color classes after render
+        setTimeout(()=>{
+          rows.forEach(r=>{
+            const bars = document.querySelectorAll(`.bar[data-id="${r.id}"]`);
+            bars.forEach(b=>{ b.style.fill = colorForTask(r); });
+          });
+        }, 0);
+
+        dlBtn.disabled = false;
+        showMsg(chartMsg, `Generated ${rows.length} task(s).`, 'ok');
+      }
+
+      async function saveJpg(){
+        const panel = document.getElementById('ganttPanel');
+        const scale = 2; // HD export
+        // Make sure current view fits horizontally inside the export area
+        panel.scrollLeft = 0;
+        const dataUrl = await htmlToImage.toJpeg(panel, { quality: 0.95, pixelRatio: scale, backgroundColor: '#ffffff' });
+        const blob = await (await fetch(dataUrl)).blob();
+        const stamp = new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+        const filename = `gantt-${stamp}.jpg`;
+        if (window.showSaveFilePicker){
+          try {
+            const handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description:'JPEG Image', accept:{ 'image/jpeg':['.jpg','.jpeg'] } }] });
+            const w = await handle.createWritable(); await w.write(blob); await w.close(); showMsg(chartMsg, `Saved as ${handle.name}.`, 'ok'); return;
+          } catch(e){ if (e && e.name === 'AbortError'){ showMsg(chartMsg, 'Save cancelled.'); return; } }
+        }
+        // Fallback
+        const a = document.createElement('a'); a.href = dataUrl; a.download = filename; a.click(); showMsg(chartMsg, 'Downloaded .jpg. If no prompt appeared, it was saved to the default Downloads folder.', 'ok');
+      }
+
+      // Wire up
+      addBtn.addEventListener('click', addRow);
+      updateBtn.addEventListener('click', updateRow);
+      cancelBtn.addEventListener('click', cancelEdit);
+      clearBtn.addEventListener('click', clearRows);
+      exBtn.addEventListener('click', ()=>{
+        rows.length = 0;
+        rows.push(
+          { id:'T1', name:'Kickoff', start:'2025-08-01', end:'2025-08-02', dur:2, deps:'', prog:100, who:'PM' },
+          { id:'T2', name:'Design', start:'2025-08-03', end:'2025-08-07', dur:5, deps:'T1', prog:60, who:'Aisha' },
+          { id:'T3', name:'Prototype', start:'2025-08-05', end:'2025-08-12', dur:8, deps:'T2', prog:30, who:'Ben' },
+          { id:'T4', name:'Testing', start:'2025-08-13', end:'2025-08-18', dur:6, deps:'T3', prog:0, who:'Chen' },
+          { id:'T5', name:'Launch', start:'2025-08-19', end:'2025-08-20', dur:2, deps:'T4', prog:0, who:'Team' }
+        );
+        renderTable(); showMsg(msg, 'Loaded example data. Generate the Gantt to preview.', 'ok');
+      });
+      edgeBtn.addEventListener('click', ()=>{
+        rows.length = 0;
+        rows.push(
+          { id:'T1', name:'Single-day task', start:'2025-08-01', end:'2025-08-01', dur:1, deps:'', prog:20, who:'Dev' },
+          { id:'T2', name:'No start, duration only', start:'2025-08-04', end:'2025-08-08', dur:5, deps:'T1', prog:50, who:'QA' },
+          { id:'T3', name:'Overdue task', start:'2025-07-20', end:'2025-07-25', dur:6, deps:'', prog:40, who:'Ops' },
+          { id:'T4', name:'Parallel stream', start:'2025-08-02', end:'2025-08-15', dur:14, deps:'T1', prog:10, who:'Data' }
+        );
+        renderTable(); showMsg(msg, 'Loaded edge cases. Generate the Gantt to validate rendering.', 'ok');
+      });
+      genBtn.addEventListener('click', generate);
+      dlBtn.addEventListener('click', saveJpg);
+
+      taskEl.addEventListener('keydown', e=>{ if (e.key==='Enter'){ e.preventDefault(); addRow(); } });
+
+      taskEl.focus();
+    });
+  </script>
+</body>
+</html>
